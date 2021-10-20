@@ -2,6 +2,7 @@ import json
 import logging
 import os
 import re
+import signal
 import time
 import socket
 from threading import Thread
@@ -19,6 +20,81 @@ class bcolors:
     ENDC = '\033[0m'
     BOLD = '\033[1m'
     UNDERLINE = '\033[4m'
+
+
+def commands():
+    while True:
+        try:
+            n = input("")
+            if n.isspace() or n == "":
+                continue
+            elif n == "{exit}":
+                break
+            elif n == "cls":
+                cls()
+                continue
+            elif n == "rdlog":
+                rdlog()
+                continue
+            elif n == "cllog":
+                cllog()
+                continue
+            elif n == "cldata":
+                cldata()
+                continue
+            elif n == "help":
+                help()
+                continue
+            else:
+                print("\033[31m" + ('[ERROR] Unknown command ' + "\""+str(n)+"\"."+'Try help') + '\033[0m')
+                continue
+        except:
+            print("\033[31m" + ('[ERROR] Unknown command ' + "\""+str(n)+"\"."+'Try help') + '\033[0m')
+            continue
+    os.kill(os.getpid(), signal.SIGTERM)
+
+
+def help():
+    print(f"{bcolors.OKGREEN}{{exit}} - Exit from program")
+    print("cls - Сlear the console")
+    print("rdlog - Read log file")
+    print("cllog - Clear log file")
+    print(f"cldata - Clear data file{bcolors.ENDC}")
+    return
+
+
+def cls():
+    return os.system('cls' if os.name == 'nt' else 'clear')
+
+
+def cldata():
+    try:
+        open('data.json', 'w').close()
+        print(f"{bcolors.OKGREEN}[INFO] Successfully cleaned data file{bcolors.ENDC}")
+    except:
+        print(f"{bcolors.FAIL}[ERROR] File does not exist{bcolors.ENDC}")
+    return
+
+
+def cllog():
+    try:
+        open('app.log', 'w').close()
+        print(f"{bcolors.OKGREEN}[INFO] Successfully cleaned log file{bcolors.ENDC}")
+    except:
+        print(f"{bcolors.FAIL}[ERROR] File does not exist{bcolors.ENDC}")
+    return
+
+
+def rdlog():
+    try:
+        with open('app.log') as fd:
+            lines = fd.readlines()
+        for line in lines:
+            print(line.strip())
+        print(f"{bcolors.OKGREEN}[INFO] Ended reading log file{bcolors.ENDC}")
+    except:
+        print(f"{bcolors.FAIL}[ERROR] File does not exist{bcolors.ENDC}")
+    return
 
 
 def gettimestamp():
@@ -67,8 +143,7 @@ def setport():
 def accept_incoming_connections():
     while True:
         client, client_address = SERVER.accept()
-        print(
-            f"{bcolors.OKGREEN}[NEW CONNECTION {gettimestamp()}] {client_address[0]}:{client_address[1]} has connected{bcolors.ENDC}")
+        print(f"{bcolors.OKGREEN}[NEW CONNECTION {gettimestamp()}] {client_address[0]}:{client_address[1]} has connected{bcolors.ENDC}")
         logging.info(f"[NEW CONNECTION {gettimestamp()}] {client_address[0]}:{client_address[1]} has connected")
         Thread(target=handle_client, args=(client, client_address)).start()
 
@@ -182,6 +257,7 @@ PORT = setport()
 BUFSIZ = 1024
 
 SERVER = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
 if check_free_port(PORT):
     SERVER.bind((HOST, PORT))
 else:
@@ -192,6 +268,7 @@ if not os.path.exists('data.json'):
         json.dump(addresses, f, ensure_ascii=False, indent=4)
 
 if __name__ == "__main__":
+
     print(f"{bcolors.OKGREEN}[STARTING] Server is starting...{bcolors.ENDC}")
     logging.info("[STARTING] Server is starting...")
 
@@ -208,6 +285,9 @@ if __name__ == "__main__":
     logging.info("[WAITING] Waiting for connection...")
 
     ACCEPT_THREAD = Thread(target=accept_incoming_connections)
+    MAIN_THREAD = Thread(target=commands)
+    MAIN_THREAD.start()
     ACCEPT_THREAD.start()
     ACCEPT_THREAD.join()
+    MAIN_THREAD.join()
     SERVER.close()
