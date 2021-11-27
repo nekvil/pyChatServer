@@ -10,7 +10,7 @@ from colorama import init
 import bcrypt
 
 
-class bcolors:
+class BColors:
     HEADER = '\033[95m'
     OKBLUE = '\033[94m'
     OKCYAN = '\033[96m'
@@ -23,6 +23,7 @@ class bcolors:
 
 
 def commands():
+    n = ""
     while True:
         try:
             n = input("")
@@ -34,16 +35,22 @@ def commands():
                 cls()
                 continue
             elif n == "rdlog":
-                rdlog()
+                read_log()
                 continue
             elif n == "cllog":
-                cllog()
+                clear_log()
                 continue
             elif n == "cldata":
-                cldata()
+                clear_data()
                 continue
             elif n == "help":
-                help()
+                _help()
+                continue
+            elif "ipm" in n:
+                if len(n.split()) != 2:
+                    print(f"{BColors.FAIL}[ERROR] Usage: ipm [mode]{BColors.ENDC}")
+                else:
+                    ipm(n.split()[1])
                 continue
             else:
                 print("\033[31m" + ('[ERROR] Unknown command ' + "\""+str(n)+"\"."+'Try help') + '\033[0m')
@@ -54,50 +61,68 @@ def commands():
     os.kill(os.getpid(), signal.SIGTERM)
 
 
-def help():
-    print(f"{bcolors.OKGREEN}{{exit}} - Exit from program")
-    print("cls - Сlear the console")
+def _help():
+    print(f"{BColors.OKGREEN}\nCommands: ")
+    print(f"{{exit}} - Exit from program")
+    print("cls - Clear the console")
     print("rdlog - Read log file")
     print("cllog - Clear log file")
-    print(f"cldata - Clear data file{bcolors.ENDC}")
+    print("ipm - Change ip mode. [ip, ipp]")
+    print(f"cldata - Clear data file{BColors.ENDC}\n")
     return
+
+
+def ipm(mode):
+    global ip_only
+
+    if mode == "ip":
+        ip_only = True
+        info = "Now server is working in IP only mode"
+    elif mode == "ipp":
+        ip_only = False
+        info = "Now server is working in IP+PORT mode"
+    else:
+        return print(f"{BColors.FAIL}[ERROR] Wrong mode name! Try help{BColors.ENDC}")
+
+    return print(f"{BColors.OKGREEN}[INFO] {info}{BColors.ENDC}")
 
 
 def cls():
     return os.system('cls' if os.name == 'nt' else 'clear')
 
 
-def cldata():
+def clear_data():
     try:
-        open('data.json', 'w').close()
-        print(f"{bcolors.OKGREEN}[INFO] Successfully cleaned data file{bcolors.ENDC}")
+        with open('data.json', 'w+', encoding='utf-8') as file:
+            json.dump(dict(), file, ensure_ascii=False, indent=4)
+        print(f"{BColors.OKGREEN}[INFO] Successfully cleaned data file{BColors.ENDC}")
     except:
-        print(f"{bcolors.FAIL}[ERROR] File does not exist{bcolors.ENDC}")
+        print(f"{BColors.FAIL}[ERROR] File does not exist{BColors.ENDC}")
     return
 
 
-def cllog():
+def clear_log():
     try:
         open('app.log', 'w').close()
-        print(f"{bcolors.OKGREEN}[INFO] Successfully cleaned log file{bcolors.ENDC}")
+        print(f"{BColors.OKGREEN}[INFO] Successfully cleaned log file{BColors.ENDC}")
     except:
-        print(f"{bcolors.FAIL}[ERROR] File does not exist{bcolors.ENDC}")
+        print(f"{BColors.FAIL}[ERROR] File does not exist{BColors.ENDC}")
     return
 
 
-def rdlog():
+def read_log():
     try:
         with open('app.log') as fd:
             lines = fd.readlines()
         for line in lines:
             print(line.strip())
-        print(f"{bcolors.OKGREEN}[INFO] Ended reading log file{bcolors.ENDC}")
+        print(f"{BColors.OKGREEN}[INFO] Ended reading log file{BColors.ENDC}")
     except:
-        print(f"{bcolors.FAIL}[ERROR] File does not exist{bcolors.ENDC}")
+        print(f"{BColors.FAIL}[ERROR] File does not exist{BColors.ENDC}")
     return
 
 
-def gettimestamp():
+def get_timestamp():
     return time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
 
 
@@ -117,7 +142,7 @@ def check_free_port(port, rais=True):
         sock.close()
     except socket.error as e:
         if rais:
-            print(f"{bcolors.WARNING}[WARNING] The server is already running on port {port} {bcolors.ENDC}")
+            print(f"{BColors.WARNING}[WARNING] The server is already running on port {port} {BColors.ENDC}")
             logging.warning(f"[WARNING] The server is already running on port {port}")
         return False
         # if rais:
@@ -126,7 +151,7 @@ def check_free_port(port, rais=True):
     return True
 
 
-def setport():
+def set_port():
     while True:
         port = input("[SET PORT] - ")
         if len(port) <= 5 and port.isdigit():
@@ -143,8 +168,8 @@ def setport():
 def accept_incoming_connections():
     while True:
         client, client_address = SERVER.accept()
-        print(f"{bcolors.OKGREEN}[NEW CONNECTION {gettimestamp()}] {client_address[0]}:{client_address[1]} has connected{bcolors.ENDC}")
-        logging.info(f"[NEW CONNECTION {gettimestamp()}] {client_address[0]}:{client_address[1]} has connected")
+        print(f"{BColors.OKGREEN}[NEW CONNECTION {get_timestamp()}] {client_address[0]}:{client_address[1]} has connected{BColors.ENDC}")
+        logging.info(f"[NEW CONNECTION {get_timestamp()}] {client_address[0]}:{client_address[1]} has connected")
         Thread(target=handle_client, args=(client, client_address)).start()
 
 
@@ -154,45 +179,47 @@ def handle_client(client, client_address):
         with open("data.json", "r") as read_file:
             json_addresses = json.load(read_file)
 
-        # address = f"{client_address[0]}:{client_address[1]}"
-        address = f"{client_address[0]}"
+        if ip_only:
+            address = f"{client_address[0]}"
+        else:
+            address = f"{client_address[0]}:{client_address[1]}"
 
         if address in json_addresses:
 
             name = json_addresses[address]["name"]
-            client.send(bytes(f"{bcolors.OKGREEN}[INFO] Welcome back, {name}!{bcolors.ENDC}", "utf8"))
+            client.send(bytes(f"{BColors.OKGREEN}[INFO] Welcome back, {name}!{BColors.ENDC}", "utf8"))
             # Вход в аккаунт
             try_count = 4
             while True:
                 client.send(bytes("[PASSWORD] Type your password and press enter", "utf8"))
-                password = client.recv(BUFSIZ).decode("utf8")
+                password = client.recv(BUF_SIZ).decode("utf8")
 
                 if bcrypt.checkpw(bytes(password, "utf8"), json_addresses[address]["password"].encode("utf8")):
-                    client.send(bytes(f"{bcolors.OKGREEN}[INFO] Successfully logging{bcolors.ENDC}", "utf8"))
+                    client.send(bytes(f"{BColors.OKGREEN}[INFO] Successfully logging{BColors.ENDC}", "utf8"))
                     break
                 elif try_count == 0:
                     client.send(bytes(
-                        f"{bcolors.FAIL}[ERROR] You have exceeded the number of allowed attempts to sign in{bcolors.ENDC}",
+                        f"{BColors.FAIL}[ERROR] You have exceeded the number of allowed attempts to sign in{BColors.ENDC}",
                         "utf8"))
                     client.close()
                     break
                 else:
                     client.send(
-                        bytes(f"{bcolors.WARNING}[WARNING] Wrong password. Try again{bcolors.ENDC}", "utf8"))
+                        bytes(f"{BColors.WARNING}[WARNING] Wrong password. Try again{BColors.ENDC}", "utf8"))
                     try_count -= 1
 
         else:
 
             client.send(bytes("[NAME] Type your name and press enter", "utf8"))
-            name = client.recv(BUFSIZ).decode("utf8")
+            name = client.recv(BUF_SIZ).decode("utf8")
             user["name"] = name
 
             while True:
                 client.send(bytes("[PASSWORD] Type your password and press enter", "utf8"))
-                password = client.recv(BUFSIZ).decode("utf8")
+                password = client.recv(BUF_SIZ).decode("utf8")
                 if not check_password(password):
                     client.send(bytes(
-                        f"{bcolors.WARNING}[WARNING] Your password must be at least 8 characters long, be of mixed case and also contain a digit or symbol.{bcolors.ENDC}",
+                        f"{BColors.WARNING}[WARNING] Your password must be at least 8 characters long, be of mixed case and also contain a digit or symbol.{BColors.ENDC}",
                         "utf8"))
                 else:
                     break
@@ -204,39 +231,39 @@ def handle_client(client, client_address):
             with open('data.json', 'w', encoding='utf-8') as f:
                 json.dump(json_addresses, f, ensure_ascii=False, indent=4)
 
-        welcome = f'Hello {bcolors.OKGREEN}{name}{bcolors.ENDC}! If you ever want to quit, type {bcolors.WARNING}{{exit}}{bcolors.ENDC} to exit.'
+        welcome = f'Hello {BColors.OKGREEN}{name}{BColors.ENDC}! If you ever want to quit, type {BColors.WARNING}{{exit}}{BColors.ENDC} to exit.'
         client.send(bytes(welcome, "utf8"))
 
-        msg = f"{bcolors.OKGREEN}[JOIN {gettimestamp()}] {name} has joined the chat{bcolors.ENDC}"
+        msg = f"{BColors.OKGREEN}[JOIN {get_timestamp()}] {name} has joined the chat{BColors.ENDC}"
         broadcast(bytes(msg, "utf8"))
 
         clients[client] = name
 
         while True:
-            msg = client.recv(BUFSIZ)
+            msg = client.recv(BUF_SIZ)
             if msg != bytes("{exit}", "utf8"):
-                broadcast(msg, f"[MESSAGE {gettimestamp()}] " + bcolors.OKGREEN + name + bcolors.ENDC + ": ")
-                print(f"[MESSAGE {gettimestamp()}] {bcolors.OKGREEN}{name}{bcolors.ENDC}: {msg.decode()}")
+                broadcast(msg, f"[MESSAGE {get_timestamp()}] " + BColors.OKGREEN + name + BColors.ENDC + ": ")
+                print(f"[MESSAGE {get_timestamp()}] {BColors.OKGREEN}{name}{BColors.ENDC}: {msg.decode()}")
 
-                logging.info(f"[MESSAGE {client_address[0]} {gettimestamp()}] {name}: {msg.decode()}")
+                logging.info(f"[MESSAGE {client_address[0]} {get_timestamp()}] {name}: {msg.decode()}")
             else:
                 client.send(bytes("{exit}", "utf8"))
                 client.close()
 
                 print(
-                    f"{bcolors.WARNING}[NEW DISCONNECTION {gettimestamp()}] {client_address[0]}:{client_address[1]} has disconnected{bcolors.ENDC}")
+                    f"{BColors.WARNING}[NEW DISCONNECTION {get_timestamp()}] {client_address[0]}:{client_address[1]} has disconnected{BColors.ENDC}")
                 logging.info(
-                    f"[NEW DISCONNECTION {gettimestamp()}] {client_address[0]}:{client_address[1]} has disconnected")
+                    f"[NEW DISCONNECTION {get_timestamp()}] {client_address[0]}:{client_address[1]} has disconnected")
 
                 del clients[client]
                 broadcast(
-                    bytes(f"{bcolors.WARNING}[LEFT {gettimestamp()}] {name} has left the chat{bcolors.ENDC}", "utf8"))
+                    bytes(f"{BColors.WARNING}[LEFT {get_timestamp()}] {name} has left the chat{BColors.ENDC}", "utf8"))
                 break
     except:
         client.close()
         print(
-            f"{bcolors.WARNING}[NEW DISCONNECTION {gettimestamp()}] {client_address[0]}:{client_address[1]} has disconnected{bcolors.ENDC}")
-        logging.info(f"[NEW DISCONNECTION {gettimestamp()}] {client_address[0]}:{client_address[1]} has disconnected")
+            f"{BColors.WARNING}[NEW DISCONNECTION {get_timestamp()}] {client_address[0]}:{client_address[1]} has disconnected{BColors.ENDC}")
+        logging.info(f"[NEW DISCONNECTION {get_timestamp()}] {client_address[0]}:{client_address[1]} has disconnected")
         return
 
 
@@ -253,8 +280,9 @@ logging.basicConfig(level=logging.DEBUG, filename='app.log', filemode='a',
                     datefmt='%d-%b-%y %H:%M:%S')
 
 HOST = ''
-PORT = setport()
-BUFSIZ = 1024
+PORT = set_port()
+BUF_SIZ = 1024
+ip_only = False
 
 SERVER = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
@@ -265,19 +293,27 @@ else:
 
 if not os.path.exists('data.json'):
     with open('data.json', 'w+', encoding='utf-8') as f:
-        json.dump(addresses, f, ensure_ascii=False, indent=4)
+        json.dump(dict(), f, ensure_ascii=False, indent=4)
 
 if __name__ == "__main__":
 
-    print(f"{bcolors.OKGREEN}[STARTING] Server is starting...{bcolors.ENDC}")
+    print(f"{BColors.OKGREEN}[STARTING] Server is starting...{BColors.ENDC}")
     logging.info("[STARTING] Server is starting...")
+
+    if ip_only:
+        ip_mode_info = "Working in IP only mode"
+    else:
+        ip_mode_info = "Working in IP+PORT mode"
+
+    print(f"{BColors.WARNING}[IP MODE] {ip_mode_info}{BColors.ENDC}")
+    logging.info(f"[IP MODE] {ip_mode_info}")
 
     print(f"[BINDING] Binding address {SERVER.getsockname()[0]}:{SERVER.getsockname()[1]}")
     logging.info(f"[BINDING] Binding address {SERVER.getsockname()[0]}:{SERVER.getsockname()[1]}")
 
-    print(f"[LISTENING {gettimestamp()}] Server is listening on {SERVER.getsockname()[0]}:{SERVER.getsockname()[1]}")
+    print(f"[LISTENING {get_timestamp()}] Server is listening on {SERVER.getsockname()[0]}:{SERVER.getsockname()[1]}")
     logging.info(
-        f"[LISTENING {gettimestamp()}] Server is listening on {SERVER.getsockname()[0]}:{SERVER.getsockname()[1]}")
+        f"[LISTENING {get_timestamp()}] Server is listening on {SERVER.getsockname()[0]}:{SERVER.getsockname()[1]}")
 
     SERVER.listen(5)
 

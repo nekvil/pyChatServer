@@ -4,7 +4,8 @@ import re
 from colorama import init
 import getpass
 
-def setport():
+
+def set_port():
     while True:
         port = input("[SET PORT] - ")
         if len(port) <= 5 and port.isdigit():
@@ -27,7 +28,7 @@ def is_valid_hostname(hostname):
     return all(allowed.match(x) for x in hostname.split("."))
 
 
-def sethost():
+def set_host():
     while True:
         host = input("[SET HOST] - ")
         if not host:
@@ -66,8 +67,8 @@ def send():
 
 init()
 
-HOST = sethost()
-PORT = setport()
+HOST = set_host()
+PORT = set_port()
 
 BUFSIZ = 1024
 ADDR = (HOST, PORT)
